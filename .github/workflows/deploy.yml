@@ -74,12 +74,31 @@ jobs:
 
           echo "Deployment Command ID: $COMMAND_ID"
 
+          set +e
+
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "i-0c354140bcd68f6b8"
 
-          aws ssm get-command-invocation \
+          WAITER_EXIT=$?
+
+          RESULT=$(aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "i-0c354140bcd68f6b8" \
             --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
-            --output json
+            --output json)
+
+          echo "$RESULT"
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0c354140bcd68f6b8" \
+            --query 'Status' \
+            --output text)
+
+          if [ "$WAITER_EXIT" -ne 0 ] || [ "$STATUS" != "Success" ]; then
+            echo "NovaPay deployment failed on Server 1."
+            exit 1
+          fi
+
+          echo "NovaPay deployment completed successfully on Server 1."
